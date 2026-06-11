@@ -1,109 +1,235 @@
 # 2026《人工智能导论》大作业 - 可解释的谣言检测
 
-## 1. 主要目标与要求
+## 1. 项目目标
 
-**目标**：对社交媒体推文进行二分类（谣言 / 非谣言），同时输出一段自然语言解释判断依据
+对社交媒体推文进行二分类：
 
-**重要要求**：
-- 准确率尽量高（按照wsl老师的说法，正确率最好达到80%以上），解释需连贯、可读
-- 模型需能运行（已实现）
-- 最终提交：GitHub 仓库（包含报告PDF和代码）
+- `0`：非谣言
+- `1`：谣言
 
-## 2. 文件内容与作用
+同时输出一段自然语言解释，说明判断依据。
 
-| 文件 | 作用 | 主要函数 |
-|------|------|----------|
-| `harness_base.py` | 定义 Harness 基类，提供 `update` / `predict` 接口 | `Harness.__init__`, `update`, `predict` |
-| `llm_client.py` | 封装学校 LLM API 调用 | `call_llm(messages)` → 返回字符串 |
-| `detection.py` | 核心分类逻辑，继承 Harness | `update()`（构建 BM25 索引 + 精确匹配表）<br>`predict()`（BM25 检索 + 构造 prompt + 调用 LLM + 解析）<br>`get_last_explanation()`（获取解释） |
-| `run.py` | 加载数据、训练、评估、保存结果 | `load_data()` → 读取 CSV<br>`evaluate()` → 循环预测并计算指标<br>`main()` → 整体流程 |
-| `requirements.txt` | 依赖库 | - |
+当前采用 **深度学习分类器 + BM25 证据检索 + 学校 LLM 解释生成** 的复合架构。
 
-## 3. 当前版本的主要策略与思路
+## 2. 系统架构
 
-**整体策略**：BM25 检索 + Few-shot 推理 + 强制输出解释
-（人话：在训练集中检索与目标样本相似的样本提供给 LLM，帮助判断）
+```mermaid
+flowchart TD
+    inputText[输入推文] --> neuralModel[TF-IDF + MLP 分类器]
+    neuralModel --> finalLabel[最终标签 0或1]
+    neuralModel --> confidence[置信度]
 
-1. **训练阶段（`update`）**  
-   - 存储每条样本的原始文本、标签（0/1）  
-   - 提取 unigram + bigram 作为特征（即单个token和token的两两组合）
-   - 构建 BM25 倒排索引（`postings`）及样本长度信息  
-   - 同时建立直接匹配表（规范化文本 → 标签） 即：要是测试集中有和训练集中一模一样的样本则直接匹配
+    inputText --> bm25[BM25 证据检索]
+    finalLabel --> bm25
+    bm25 --> evidence[同标签相似样本]
 
-2. **预测阶段（`predict`）**  
-   - **直接匹配捷径**：若测试文本在训练集中完全一致，直接返回标签（零 API 调用）  
-   - **BM25 检索**：对测试文本计算与所有训练样本的 BM25 得分，取 top-K（控制各标签配额）  
-   - **构造 Few-shot Prompt**：系统消息固定角色，用户消息包含检索到的示例（格式：`Post: ... Label: ...`）  
-   - **调用 LLM**：强制要求输出 `<reasoning>...</reasoning>` 和 `<label>0/1</label>`  
-   - **解析与回退**：正则提取标签和解释；解析失败则回退到 BM25 最高分样本的标签
+    inputText --> llmPrompt[解释 Prompt]
+    finalLabel --> llmPrompt
+    confidence --> llmPrompt
+    evidence --> llmPrompt
+    llmPrompt --> sjtuLLM[学校 LLM API]
+    sjtuLLM --> explanation[判断依据]
+```
 
-**优势**：  
-- 利用 BM25 捕捉事件关键词（含 `#`、`@`、网址）  
-- Few-shot 引导 LLM 模仿标签模式，同时生成解释  
-- 若直接匹配可节省 API 调用，提高效率
+职责划分：
 
-## 4. 环境配置
+| 模块 | 作用 |
+|------|------|
+| `neural_classifier.py` | 本地神经网络分类器，负责最终 `0/1` 标签 |
+| `bm25_retriever.py` | 检索相似训练样本，只作为解释证据 |
+| `detection.py` | 复合模型调度层 |
+| `llm_client.py` | 调用学校 LLM API，只生成解释 |
+| `run.py` | 完整系统评估入口 |
 
-安装依赖：
+结构：
+
+- **LLM 不参与最终分类**，只解释已经固定的标签。
+- **BM25 不投票、不改标签**，避免错误检索样本带偏分类结果。
+- 如果训练集中存在完全相同的推文，则走精确匹配捷径。
+
+## 3. 项目结构
+
+```text
+AI-Rumor-Detector/
+├── data/
+│   ├── train.csv              # 训练集
+│   └── val.csv                # 验证集
+├── results/
+│   ├── deep_model_comparison/ # 各深度模型最新对比结果
+│   └── prediction_results_*.csv # run.py 完整输出（含解释）
+├── bm25_retriever.py          # BM25 证据检索
+├── compare_deep_models.py     # 深度模型对比实验
+├── detection.py               # 复合模型主逻辑
+├── harness_base.py            # Harness 基类
+├── llm_client.py              # 学校 LLM API
+├── neural_classifier.py       # TF-IDF + MLP 主分类器
+├── torch_text_classifiers.py  # TextCNN / BiLSTM 实验模型
+├── run.py                     # 完整系统运行脚本
+└── requirements.txt           # 依赖列表
+```
+
+## 4. 环境部署与安装
+
+### 4.1 基础环境
+
+建议使用 Python 3.10 或 3.12。
+
 ```bash
 pip install -r requirements.txt
 ```
-运行测试脚本：
+
+### 4.2 PyTorch 安装说明
+
+
+```bash
+pip install -r requirements.txt
+```
+
+如果默认源安装失败，可参考 [PyTorch 官网](https://pytorch.org/) 选择适合你系统的安装命令。例如 CPU 版本：
+
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+```
+
+### 4.3 学校 LLM API
+
+`llm_client.py` 已配置学校 API：
+
+- 接口：`https://models.sjtu.edu.cn/api/v1`
+- 模型：`deepseek-chat`
+
+只有运行 `run.py` 时才需要有效 API Key。  
+深度模型对比脚本 `compare_deep_models.py` 目前只对比评测情况，因此不需要调用API。
+
+## 5. 如何运行
+
+### 5.1 运行完整系统（标签 + 解释）
+
+这是最终提交和展示用的命令：
+
 ```bash
 python run.py
 ```
-**注意**：`llm_client.py` 中已配置好学校 API 密钥，无需修改，除非达到了限额需要换一个人重新申请
 
-## 5. v1.0 的运行结果
+流程：
 
-### 评估结果
+1. 读取 `./data/train.csv` 和 `./data/val.csv`
+2. 用训练集更新 MLP 分类器和 BM25 索引
+3. 对验证集逐条预测
+4. 每条调用一次 LLM 生成解释
+5. 保存到 `./results/prediction_results_时间戳.csv`
 
-Accuracy:  0.7930
-Precision: 0.7840
-Recall:    0.7257
-F1 Score:  0.7537
+输出字段：
 
-### 预测示例（前5条）
+- `text`
+- `true_label`
+- `pred_label`
+- `explanation`
+- `original_index`
 
-样本 1:
-文本: So, to sum up: 1) Darren Wilson KNEW NOTHING of the robbery, 2) shot #MikeBrown over jaywalking, and 3) was allowed to escape #Ferguson.
-真实标签: 1
-预测标签: 1
-解释: The post draws a conclusion that Darren Wilson knew nothing of the robbery and shot Mike Brown over jaywalking, implying a controversial interpretation that aligns with rumor-like narrative. The train...
+注意：
 
-样本 2:
-文本: BREAKING: #Ferguson police chief just announced that officer Darren Wilson shot the unarmed teen, Michael Brown.
-真实标签: 1
-预测标签: 1
-解释: The post reports a breaking news event about the Ferguson police chief announcing that officer Darren Wilson shot Michael Brown. While this is a similar statement to several labeled posts, the trainin...
+- 完整验证集约 401 条，受 API 限流影响，通常需要 40 分钟以上。
+- `run.py` 中每条样本默认 `sleep(6)`，用于避免触发限速。
 
-样本 3:
-文本: so ... they clearly released that video  only to shame &amp; blame the victim. #Ferguson #MikeBrown
-真实标签: 1
-预测标签: 1
-解释: The post claims that a video was released specifically to shame and blame the victim, which is an accusation of malicious intent and a conspiracy-like interpretation. This matches the pattern of the r...
+当前已保留的完整 `run.py` 结果：
 
-样本 4:
-文本: BREAKING: #Anonymous has obtained audio files of police dispatch and EMS during the #MikeBrown shooting. Will release ASAP. #Ferguson
-真实标签: 1
-预测标签: 0
-解释: The post claims that Anonymous has obtained audio files of police dispatch and EMS during the Mike Brown shooting and will release them ASAP. This is similar to some of the labeled examples. In the tr...
+- `results/prediction_results_20260611_191037.csv`
 
-样本 5:
-文本: #Ferguson police are embarking on what can only be described as an elaborate smear campaign of Michael Brown http://t.co/SaLZExqR1D
-真实标签: 1
-预测标签: 1
-解释: The post makes a claim that Ferguson police are conducting an elaborate smear campaign against Michael Brown. This is an unverified, accusatory statement that goes beyond reporting facts. In the train...
+### 5.2 运行深度模型对比实验
 
-## 6. 后续改进方向建议
-要是只想小改的话，一些可能的建议：
-- 优化 Prompt，引导思考等（目前的提示词可能比较初级）
-- 换更好的模型：现在是 DeepSeek V3.2（常规模式），还要思考模式和其他模型，详见 https://claw.sjtu.edu.cn/guide/sjtu-api/
-- 优化 BM25 参数（k1, b）或改用其他检索方式（如向量检索）
-- 尝试不同 Few-shot 示例选取策略（如按事件平衡）
-- 由于LLM的输出结果具有一定的不稳定性，可以考虑对每一个样本重复预测3-5次取最多的lable，但是运行时间会比较长，且可能对正确率影响不大
+对比脚本**不调用 LLM**，只评估分类性能，适合写报告中的模型对比表。
 
-要是有更好的策略的话，做大改也是很好的（现在的思路偏向于 hardness 工程，只做了检索+一次LLM调用）
+运行全部默认可比模型：
 
-## 7. 其他注意事项
-- 学校的API有限速，一分钟最多调用十次，完整遍历完一次验证集需要40分钟以上，好慢好慢（要是觉得太慢可以用 Qwen 的免费额度，改 llm_client.py 即可）
+```bash
+python compare_deep_models.py
+```
+
+等价于：
+
+```bash
+python compare_deep_models.py --models tfidf_mlp,tfidf_mlp_t045,textcnn,bilstm --torch-epochs 8
+```
+
+其他常用命令：
+
+```bash
+# 只比较 MLP 两个阈值版本
+python compare_deep_models.py --models tfidf_mlp,tfidf_mlp_t045
+
+# 只跑某一个模型
+python compare_deep_models.py --models textcnn
+
+# 快速小样本测试
+python compare_deep_models.py --models tfidf_mlp --max-train-samples 200 --max-val-samples 50
+```
+
+### 5.3 对比模型说明
+
+| 模型名 | 含义 |
+|--------|------|
+| `tfidf_mlp` | 当前主模型，TF-IDF + MLP，默认阈值约 `0.5` |
+| `tfidf_mlp_t045` | 同一 MLP，但把谣言判定阈值降到 `0.45` |
+| `textcnn` | PyTorch TextCNN |
+| `bilstm` | PyTorch BiLSTM |
+
+说明：
+
+- `tfidf_mlp` 与 `tfidf_mlp_t045` 不是两个不同网络，而是**同一个模型、不同判决阈值**。
+
+### 5.4 对比实验输出位置
+
+所有深度模型最新结果统一保存在：
+
+```text
+results/deep_model_comparison/
+```
+
+主要文件：
+
+- `summary.csv`：各模型 Accuracy / Precision / Recall / F1
+- `{model}_predictions.csv`：逐样本预测与概率
+- `{model}_fn.csv`：谣言漏判样本
+- `{model}_fp.csv`：非谣言误报样本
+
+当前最新对比结果：
+
+| 模型 | Accuracy | F1 | 说明 |
+|------|----------|----|------|
+| `tfidf_mlp` | 0.8653 | 0.8354 | 当前主模型 |
+| `tfidf_mlp_t045` | 0.8628 | 0.8338 | 阈值诊断版 |
+| `bilstm` | 0.8429 | 0.8184 | 对比实验 |
+| `textcnn` | 0.8354 | 0.8047 | 对比实验 |
+
+## 6. 当前版本结果
+
+### 6.1 完整复合系统（`run.py`）
+
+```text
+Accuracy:  0.8653
+Precision: 0.8954
+Recall:    0.7829
+F1 Score:  0.8354
+```
+
+### 6.2 与旧版的关系
+
+项目经历了两版演进：
+
+| 版本 | 分类方式 | 典型 Accuracy |
+|------|----------|---------------|
+| 旧版 | BM25 + LLM 直接分类 | 约 0.793 |
+| 当前版 | MLP 分类 + BM25 证据 + LLM 解释 | 0.8653 |
+
+当前 Accuracy 指标主要由深度分类器决定，LLM 只负责解释，不参与改标签。
+
+
+
+## 7. 后续调参可能方向
+
+F1 最优阈值当前只试了 `0.5` 和 `0.45`。下一步可以在验证集上扫描找到最优阈值，然后这个对mlp两个阈值的检测就可以删了
+
+现在表现最好的是mlp模型，精度应该还能通过调参提升，如果无法进一步提高，可能需要考虑进行更复杂的models
+
+llm解释功能调试：优化prompt，尝试不同LLM的效果等等

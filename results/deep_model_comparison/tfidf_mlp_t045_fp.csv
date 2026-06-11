@@ -1,0 +1,19 @@
+text,true_label,pred_label,prob_0,prob_1,is_correct
+Fyi cigars in #Ferguson cost $38 million.,0,1,0.23147786017660565,0.7685221398233943,False
+"No matter what we do, it won't be as bad as killing a kid and leaving him to die on the street, covered with his own blood. #Ferguson",0,1,0.5248234216719743,0.47517657832802573,False
+#BREAKING: State Senator Maria Chapelle Nadal has been taken into police custody; she had been tear-gassed at an earlier protest. #Ferguson,0,1,0.27955674336038594,0.7204432566396141,False
+BREAKING: A Germanwings jet crashed in France as it traveled from Barcelona to Dusseldorf http://t.co/vqUUuspIFk http://t.co/mwguIFT1iu,0,1,0.40124118182395263,0.5987588181760474,False
+"An Airbus A320 plane operated by Germanwings crashed in France near Digne les Bains, French Prime Minister says. http://t.co/iWeLBpmiHS",0,1,0.08314867242401025,0.9168513275759897,False
+"""No survivors"" from #Germanwings crash in the Alps, French transport minister says http://t.co/iw1QLzJQKW http://t.co/Q0ssqcSKp2",0,1,0.4629347811785236,0.5370652188214764,False
+Can we add Daily Telegraph to suspected terror cells within Aus? Their 2pm edition did more damage than any gunman ever could #sydneysiege,0,1,0.35254306524480994,0.6474569347551901,False
+"At least 5 dead as gunman goes on rampage in PA, suspect reportedly barricaded in a home http://t.co/aCLslANGxu http://t.co/H4Mhm1cyOm",0,1,0.25598092514587834,0.7440190748541217,False
+The Lebanese Muslim Association has issued a statement condemning #sydneysiege and calling for calm. http://t.co/z2hCIBPaha,0,1,0.3913437594821778,0.6086562405178222,False
+Australian prime minister Tony Abbott to hold news conference live on Sky News at 1.30am GMT about ongoing Sydney hostage situation,0,1,0.11929007015780968,0.8807099298421903,False
+"The man believed to be holding hostages in Sydney is Man Haron Monis, known as Sheikh Haron, source says http://t.co/6T7xVdcwdD",0,1,0.31837310538802055,0.6816268946119795,False
+"""Profoundly shocking"" -Australia PM Tony Abbott delivers second  #sydneysiege statement. MORE: http://t.co/VaKt3ZpRZR http://t.co/I9VOzKLcET",0,1,0.4696662412588273,0.5303337587411727,False
+"Man what on Earth is going on in Sydney. Despicable. Life in prison no parole for the idiots responsible, set a hard line, no tolerance.",0,1,0.5191400075880598,0.4808599924119402,False
+Breaking News: Police Storm Sydney Cafe Where Hostages Are Held http://t.co/P3f2OV2Gmz,0,1,0.2681426583523766,0.7318573416476234,False
+"Australian PM Abbott expected to speak soon on ""reported hostage-taking incident"" in Sydney, @9NewsAUS reports - @WorldNews",0,1,0.007231977024796388,0.9927680229752036,False
+#BREAKING: Shooting reported at the War Memorial in Ottawa,0,1,0.12613227752213974,0.8738677224778603,False
+RAW VIDEO War Memorial shooting. http://t.co/c9wCpS2Af9 #cbcnews,0,1,0.4807029212138252,0.5192970787861748,False
+"UPDATE: #uOttawa courses + exams officially cancelled for the whole day. Lockdown still in effect. Stay indoors, stay safe #Ottawa #ottcity",0,1,0.39505422607645324,0.6049457739235468,False
