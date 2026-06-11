@@ -1,5 +1,5 @@
 """
-run.py — 基于 LLM 的可解释谣言检测运行脚本
+run.py — 复合式可解释谣言检测运行脚本
 加载数据集，训练 RumorDetectionHarness，在验证集上评估准确率并输出示例解释。
 """
 
@@ -135,7 +135,7 @@ def main():
     print("\n初始化 RumorDetectionHarness...")
     harness = RumorDetectionHarness(call_llm)
     
-    print("\n开始训练（构建 BM25 索引和精确匹配表）...")
+    print("\n开始训练（收集神经分类器样本并构建 BM25 证据索引）...")
     for idx, row in train_df.iterrows():
         text = row['text']
         label = row['label']
@@ -143,7 +143,7 @@ def main():
         if (idx + 1) % 500 == 0:
             print(f"  已处理 {idx + 1}/{len(train_df)} 条训练样本")
     
-    print(f"训练完成，共记忆 {harness.N} 个样本，合法标签: {harness.all_labels}")
+    print(f"训练准备完成，共记忆 {harness.N} 个样本，合法标签: {harness.all_labels}")
     
     # 评估
     evaluate(harness, val_df, max_samples=MAX_EVAL_SAMPLES, verbose=True)
