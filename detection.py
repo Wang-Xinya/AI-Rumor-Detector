@@ -12,7 +12,7 @@ import re
 
 from bm25_retriever import BM25EvidenceRetriever, RetrievedExample
 from harness_base import Harness
-from neural_classifier import NeuralPrediction, NeuralRumorClassifier
+from improved_classifier import NeuralPrediction, NeuralRumorClassifier
 
 
 class RumorDetectionHarness(Harness):
